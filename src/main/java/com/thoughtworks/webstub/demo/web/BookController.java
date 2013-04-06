@@ -5,10 +5,7 @@ import com.thoughtworks.webstub.demo.utils.Client;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
@@ -18,6 +15,8 @@ import java.util.Map;
 import static com.thoughtworks.webstub.demo.model.Book.EMPTY;
 import static javax.servlet.http.HttpServletResponse.SC_ACCEPTED;
 import static javax.servlet.http.HttpServletResponse.SC_CONFLICT;
+import static javax.servlet.http.HttpServletResponse.SC_NOT_FOUND;
+import static org.springframework.web.bind.annotation.RequestMethod.GET;
 import static org.springframework.web.bind.annotation.RequestMethod.PUT;
 
 @Controller
@@ -26,16 +25,18 @@ public class BookController {
     @Autowired
     private Client client;
 
-    @Value("${review.service.url}")
+    @Value("${review.service.url}") // read from configured property file
     private String bookReviewBase;
 
     private final Map<Integer, Book> books = new HashMap<Integer, Book>();
 
     @ResponseBody
-    @RequestMapping(value = "/{id:[\\d]+}", produces = "application/json")
-    public Book findById(@PathVariable Integer id) {
-        if (!books.containsKey(id))
+    @RequestMapping(method = GET, value = "/{id:[\\d]+}", produces = "application/json")
+    public Book find(@PathVariable Integer id, HttpServletResponse response) {
+        if (!books.containsKey(id)) {
+            response.setStatus(SC_NOT_FOUND);
             return EMPTY;
+        }
 
         Book book = books.get(id);
         book.setReview(reviewFor(id));
@@ -43,12 +44,7 @@ public class BookController {
     }
 
     @RequestMapping(method = PUT, value = "/{id:[\\d]+}", consumes = "application/json")
-    public void create(@RequestBody Book book, @PathVariable Integer id, HttpServletResponse response) throws IOException {
-        if (books.containsKey(id)) {
-            response.sendError(SC_CONFLICT, "Book with id " + id + " already exists");
-            return;
-        }
-
+    public void createOrUpdate(@PathVariable Integer id, @RequestBody Book book, HttpServletResponse response) throws IOException {
         books.put(id, book);
         response.setStatus(SC_ACCEPTED);
     }

@@ -1,6 +1,9 @@
 package com.thoughtworks.webstub.demo;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.thoughtworks.inproctester.core.InProcRequest;
+import com.thoughtworks.webstub.demo.model.Book;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -8,29 +11,38 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
-public class GetRequest implements InProcRequest {
+public class Put implements InProcRequest {
+    private String content;
     private URI uri;
+
     private Map<String, String> headers = new HashMap<String, String>() {{
         put("Host", "localhost");
+        put("Content-Type", "application/json");
     }};
 
-    public GetRequest(String uriString) throws URISyntaxException {
+    public Put(String uriString, Book book) throws JsonProcessingException, URISyntaxException {
+        this.content = new ObjectMapper().writeValueAsString(book);
+        this.uri = new URI(uriString);
+    }
+
+    public Put(String uriString, String content) throws URISyntaxException {
+        this.content = content;
         this.uri = new URI(uriString);
     }
 
     @Override
     public String getHttpMethod() {
-        return "GET";
+        return "PUT";
     }
 
     @Override
     public URI getUri() {
-        return uri;
+        return  uri;
     }
 
     @Override
     public String getContent() {
-        return null;
+        return content;
     }
 
     @Override

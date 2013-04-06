@@ -1,6 +1,5 @@
 package com.thoughtworks.webstub.demo;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.thoughtworks.inproctester.core.InProcRequest;
 import com.thoughtworks.inproctester.core.InProcResponse;
 import com.thoughtworks.inproctester.jetty.HttpAppTester;
@@ -23,7 +22,7 @@ import static org.junit.Assert.assertThat;
 
 public class FunctionalTest {
     private static HttpAppTester app;
-    private static final ObjectMapper objectMapper = new ObjectMapper();
+    private final BookMapper mapper = new BookMapper();
     private static HttpServerStub httpStub;
     private static HttpDsl dslServer;
 
@@ -34,9 +33,10 @@ public class FunctionalTest {
 
         // the external service is configured at localhost:9999, so let's start a stub there!
         httpStub = stubServer(9999, "/");
-        dslServer = dslWrapped(httpStub);
         httpStub.start();
+        dslServer = dslWrapped(httpStub);
 
+        // start the app under test in the test process itself
         app = new HttpAppTester("./src/main/webapp", "/");
         app.start();
     }
@@ -45,20 +45,21 @@ public class FunctionalTest {
     public void shouldReturnBookWithReviewInAnAwesomeWay() throws URISyntaxException, IOException {
 
         // create a book resource
-        InProcRequest put = new PutRequest("http://localhost/book/4", Book("My Experiments With Truth"));
+        Book newBook = Book("My Experiments With Truth");
+        InProcRequest put = new Put("http://localhost/book/4", mapper.toJson(newBook));
         assertThat(app.getResponses(put).getStatus(), is(202));
 
         // stub external endpoint to return canned book review
         dslServer.get("/book/4").returns(response(200).withContent("MK Gandhi's autobiography"));
 
         // act
-        InProcRequest request = new GetRequest("http://localhost/book/4");
-        InProcResponse response = app.getResponses(request);
+        InProcRequest get = new Get("http://localhost/book/4");
+        InProcResponse response = app.getResponses(get);
 
         // assert
         assertThat(response.getStatus(), is(200));
 
-        Book book = parseBook(response.getContent());
+        Book book = mapper.fromJson(response.getContent());
         assertThat(book.getName(), is("My Experiments With Truth"));
         assertThat(book.getReview(), is("MK Gandhi's autobiography"));
     }
@@ -67,9 +68,5 @@ public class FunctionalTest {
     public static void afterAll() {
         app.stop();
         httpStub.stop();
-    }
-
-    private Book parseBook(String json) throws IOException {
-        return objectMapper.readValue(json, Book.class);
     }
 }
